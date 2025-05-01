@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rayflix Fake Username Generator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #e44d26; /* Rayflix color scheme */
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="number"],
+        select {
+            width: calc(100% - 16px);
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #e44d26; /* Rayflix color scheme */
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 18px;
+            margin-top: 20px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #c63d17;
+        }
+        #loading {
+            display: none;
+            margin-top: 20px;
+            font-style: italic;
+            color: #777;
+        }
+        #username-output {
+            margin-top: 30px;
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            background-color: #fefefe;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        #username-output h2 {
+            color: #e44d26; /* Rayflix color scheme */
+            margin-top: 0;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        #error-message {
+            color: #e74c3c;
+            margin-top: 20px;
+            display: none;
+            font-weight: bold;
+            text-align: center;
+        }
+        .button-group {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+        .username-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .username-list li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Rayflix Fake Username Generator</h1>
+        <div class="form-group">
+            <label for="number">Number of Usernames:</label>
+            <input type="number" id="number" name="number" min="1" value="5">
+        </div>
+        <div class="form-group">
+            <label for="style">Username Style (Optional):</label>
+            <select id="style" name="style">
+                <option value="">-- Any --</option>
+                <option value="funny">Funny</option>
+                <option value="cool">Cool</option>
+                <option value="techy">Techy</option>
+                <option value="fantasy">Fantasy</option>
+                <option value="unique">Unique</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="keywords">Keywords (Optional):</label>
+            <input type="text" id="keywords" name="keywords" placeholder="e.g., dragon, space, code">
+        </div>
+        <button onclick="generateUsernames()">Generate Usernames</button>
+        <div id="loading">Generating... please wait.</div>
+        <div id="username-output" style="display: none;">
+            <h2>Generated Usernames</h2>
+            <ul id="username-list" class="username-list"></ul>
+            <div class="button-group">
+                <button onclick="regenerateUsernames()">Regenerate</button>
+                <button onclick="copyUsernames()">Copy All</button>
+            </div>
+        </div>
+        <div id="error-message"></div>
+    </div>
+
+    <script>
+        const apiKey = "AIzaSyDO0NZ17nDS2b2cVHU1BixeW1fmnVomryQ";
+        const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        let lastUsernamePrompt = "";
+        let generatedUsernamesArray = [];
+
+        async function generateUsernames() {
+            const number = document.getElementById('number').value;
+            const style = document.getElementById('style').value;
+            const keywords = document.getElementById('keywords').value;
+
+            let prompt = `Generate ${number} creative and fake usernames`;
+            if (style) {
+                prompt += ` with a ${style} style`;
+            }
+            if (keywords) {
+                prompt += ` including the keywords: ${keywords}`;
+            }
+            prompt += ". Make each username unique and interesting.";
+
+            lastUsernamePrompt = prompt;
+
+            document.getElementById('username-output').style.display = 'none';
+            document.getElementById('error-message').textContent = '';
+            document.getElementById('loading').style.display = 'block';
+            const usernameListElement = document.getElementById('username-list');
+            usernameListElement.innerHTML = ''; // Clear previous usernames
+            generatedUsernamesArray = [];
+
+            try {
+                const response = await fetch(baseUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{ text: prompt }]
+                        }],
+                        generationConfig: {
+                            maxOutputTokens: parseInt(number) * 50, // Adjust based on desired username length
+                            temperature: 0.7,
+                            topP: 0.8,
+                            topK: 40,
+                        },
+                    }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Gemini API Error: ${response.status} - ${errorData.error?.message || response.statusText}`);
+                }
+
+                const data = await response.json();
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('username-output').style.display = 'block';
+
+                if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text) {
+                    const generatedText = data.candidates[0].content.parts[0].text;
+                    const usernames = generatedText.split('\n').filter(username => username.trim() !== ''); // Split by newline and remove empty lines
+                    usernames.forEach(username => {
+                        const li = document.createElement('li');
+                        li.textContent = username.trim();
+                        usernameListElement.appendChild(li);
+                        generatedUsernamesArray.push(username.trim());
+                    });
+                } else {
+                    document.getElementById('error-message').textContent = "Could not generate usernames. Unexpected response.";
+                    document.getElementById('error-message').style.display = 'block';
+                    document.getElementById('username-output').style.display = 'none';
+                }
+
+            } catch (error) {
+                console.error("Error fetching usernames from Gemini:", error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error-message').textContent = error.message;
+                document.getElementById('error-message').style.display = 'block';
+                document.getElementById('username-output').style.display = 'none';
+            }
+        }
+
+        async function regenerateUsernames() {
+            generateUsernames();
+        }
+
+        function copyUsernames() {
+            if (generatedUsernamesArray.length > 0) {
+                const usernamesText = generatedUsernamesArray.join('\n');
+                navigator.clipboard.writeText(usernamesText).then(function() {
+                    alert("Usernames copied to clipboard!");
+                }, function(err) {
+                    console.error('Could not copy text: ', err);
+                    alert("Failed to copy usernames.");
+                });
+            } else {
+                alert("No usernames to copy.");
+            }
+        }
+    </script>
+</body>
+</html>
